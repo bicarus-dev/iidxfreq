@@ -18,6 +18,10 @@ This hook will try its best to tell the server to not save anything; scores are 
 
 Requires a recent Spice2x version supporting the Spice SDK.
 
+## Supported LDJ versions
+
+See https://github.com/bicarus-dev/iidxfreq/blob/main/src/versions/registry.h
+
 ## Build
 
 Requires Docker for Linux containers. The first build creates the project's MinGW image and downloads pinned SoundTouch, MinHook, and SimpleIni sources.
