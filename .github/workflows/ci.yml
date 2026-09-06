@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: MinGW x64 Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Build toolchain image
+        run: docker build --pull --tag iidxfreq-build docker
+
+      - name: Build DLL
+        env:
+          BUILD_TYPE: Release
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src" \
+            --workdir /src \
+            --env BUILD_TYPE \
+            --env BUILD_ROOT=/tmp/iidxfreq-build \
+            iidxfreq-build bash /src/build_all.sh
+          test -s bin/iidxfreq/iidxfreq.dll
+          test -s bin/iidxfreq/iidxfreq.ini
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: iidxfreq-x64-Release
+          path: |
+            bin/iidxfreq/iidxfreq.dll
+            bin/iidxfreq/iidxfreq.ini
+          if-no-files-found: error
+          retention-days: 30
