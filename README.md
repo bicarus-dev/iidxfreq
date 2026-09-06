@@ -1,10 +1,14 @@
 # iidxfreq
 
+**Play on offline servers only, out of precaution!**
+
 Changes IIDX song/chart/audio speed from **0.5x to 2x**, with optional pitch preservation. Similar to `FREQ` option in LR2 or `Play Rate` in Infinitas. Judgement windows will be normal and unaffected, as you would expect.
 
-Videos will always play at 1x speed. Not all modes have been tested; stick to single player modes, avoid courses.
+FREQ is available in Standard, Step Up, and Premium Free. Other modes run at 1x without changing your pending rate.
 
-Playing at modified speed (other than 1x) blocks sending of scores, as if you were playing with assist options. Play data is still sent. Use at your own risk. Not responsible if you get banned from the server you play on.
+Videos always play at 1x; multiplayer remains untested.
+
+This hook will try its best to tell the server to not save anything; scores are sent with "no save", DAN classes are requested to not upgrade, and so on. However, there may be gaps that this hook missed. Use at your own risk. Not responsible if you get banned from the server you play on. It's recommended that you stick to an offline server and assume none of your scores will save.
 
 ## Usage
 

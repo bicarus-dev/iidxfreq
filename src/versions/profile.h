@@ -49,6 +49,7 @@ struct Profile {
     const wchar_t* module_name = L"bm2dx.dll";
     std::string_view pe_identifier;
     HookPoints hooks;
+    HookPoint gameplay_mode{};
     WaveLayout wave;
     std::size_t max_chart_events = 0x3000;
     std::uint32_t gameplay_sound_group = 2;

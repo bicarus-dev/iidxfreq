@@ -17,6 +17,13 @@
 namespace iidxfreq {
 namespace {
 
+enum class GameplayMode : std::uint32_t {
+    Standard = 0,
+    StepUp = 5,
+    PremiumFree = 6,
+};
+
+using GetGameplayMode = GameplayMode(__fastcall*)();
 using ChartConvert = void(__fastcall*)(void*, std::uint32_t);
 using Decode = void*(__fastcall*)(void*, const void*, std::size_t);
 using S3pDecode = void*(__fastcall*)(void*, const void*, std::uint32_t);
@@ -35,8 +42,6 @@ InvalidPlay original_invalid{};
 Dispatch original_dispatch{};
 GameplaySetup original_setup{};
 SoundLoad original_sound_load{};
-// Aggregate scores remain tainted for this process after any modified song.
-std::atomic<bool> modified_session{false};
 // Chart setup and the audio worker share these latched values, not pending hotkey edits.
 std::atomic<double> song_speed{1.0};
 std::atomic<bool> song_preserve_pitch{false};
@@ -83,19 +88,23 @@ template <class Value> struct ScopedValue {
 
 char __fastcall setup_hook(void* gameplay, void* music, std::int32_t first_chart,
                            std::int32_t second_chart, std::uint32_t style, void* options) {
-    const auto rate = active.load() ? pending_speed.load() : 1.0;
+    const auto mode =
+        reinterpret_cast<GetGameplayMode>(game_base + game_profile->gameplay_mode.rva)();
+    const auto rate_allowed = mode == GameplayMode::Standard || mode == GameplayMode::StepUp ||
+                              mode == GameplayMode::PremiumFree;
+    const auto requested_rate = active.load() ? pending_speed.load() : 1.0;
+    const auto rate = rate_allowed ? requested_rate : 1.0;
     const auto pitch = pending_preserve_pitch.load();
-    if (rate != 1.0) {
-        modified_session.store(true);
-    }
     song_preserve_pitch.store(pitch);
     song_speed.store(rate);
     ScopedValue scope(chart_speed, rate);
     if (active.load()) {
         try {
-            const auto message = "Play rate: " + rate_text(rate) +
-                                 (pitch ? ". Preserve pitch ON" : ". Preserve pitch OFF") +
-                                 (rate == 1.0 ? ". Normal song scoring." : ". No score saving.");
+            const auto message =
+                "Play rate: " + rate_text(rate) +
+                (!rate_allowed && requested_rate != 1.0 ? ". FREQ unavailable in this mode" : "") +
+                (pitch ? ". Preserve pitch ON" : ". Preserve pitch OFF") +
+                (rate == 1.0 ? ". Normal song scoring." : ". No score saving.");
             log_msg(message);
             show_toast(SPICE_SDK_TOAST_LEVEL_INFO, message);
         } catch (...) {
@@ -241,9 +250,7 @@ bool allow_request(std::uint32_t request) {
     if (song_speed.load() != 1.0 && std::ranges::find(song_scores, request) != song_scores.end()) {
         return false;
     }
-    // Aggregate results can include earlier modified songs, even after returning to 1x.
-    if (modified_session.load() &&
-        std::ranges::find(aggregate_scores, request) != aggregate_scores.end()) {
+    if (std::ranges::find(aggregate_scores, request) != aggregate_scores.end()) {
         return false;
     }
     // Native no-save history and profile saves remain allowed.
@@ -310,6 +317,11 @@ void install_game_hooks(std::string_view model) noexcept try {
     const auto error = select_game_profile(model);
     if (!error.empty()) {
         log_fatal(error.c_str());
+    }
+    const auto& mode = game_profile->gameplay_mode;
+    if (mode.rva == 0 ||
+        std::memcmp(game_base + mode.rva, mode.bytes.data(), mode.bytes.size()) != 0) {
+        log_fatal("Mode-getter bytes differ. No rate hooks installed.");
     }
     const auto& points = game_profile->hooks;
     const std::array hooks{

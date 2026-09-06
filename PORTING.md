@@ -19,7 +19,7 @@ In the copy, change:
 - `pe_identifier`: the identifier from step 1.
 - The profile variable: give it a unique name based on the new identifier.
 
-The remaining version-specific values are the eight hook RVAs and their entry bytes, plus the wave vtable RVA. Update them using the steps below, and leave the new profile out of the registry until they are confirmed.
+The remaining version-specific values are the eight hook RVAs and their entry bytes, the mode getter RVA and entry bytes, and the wave vtable RVA. Update them using the steps below, and leave the new profile out of the registry until they are confirmed.
 
 ## 3. Find the matching hook functions
 
@@ -29,6 +29,7 @@ Keep a supported DLL open beside the new one to compare callers and constants. U
 
 - **`chart_convert`:** Look for a loop stepping through 8-byte records, reading a timestamp at `+0`, event type at `+4`, and a 16-bit value at `+6`. Useful fingerprints are type `4` for BPM, type `6` as the end marker, and types `0`, `1`, `100`, `101` for notes/holds. The known converter also uses timestamp arithmetic equivalent to `trunc(ms / (1000 / R) + 0.4)`.
 - **`gameplay_setup`:** Once the converter is found, walk upward through the chart-loading callers to the selected-song setup that loads both players' charts. Use this caller relationship rather than searching for the setup function's prologue.
+- **`gameplay_mode`:** Find the menu label table containing `STANDARD`, `CLASS`, `STEP UP`, and `PREMIUM FREE`. Follow menu confirmation through its index-to-mode conversion and the setter storing that mode. Locate the no-argument getter returning the same global as a 32-bit value. Confirm Standard is `0`, Step Up is `5`, and Premium Free is `6`, and that the state is set before song setup. Record the getter's RVA and first 15 bytes separately from `hooks`; it is called, not detoured.
 
 ### Audio bank and sample loading
 
