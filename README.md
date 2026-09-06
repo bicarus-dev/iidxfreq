@@ -18,8 +18,6 @@ This hook will try its best to tell the server to not save anything; scores are 
 
 Requires a recent Spice2x version supporting the Spice SDK.
 
-Save INI files as UTF-8. If a key appears more than once, its last value is used.
-
 ## Build
 
 Requires Docker for Linux containers. The first build creates the project's MinGW image and downloads pinned SoundTouch, MinHook, and SimpleIni sources.
