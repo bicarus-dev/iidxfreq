@@ -1,0 +1,66 @@
+name: Draft Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: Build and Draft Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Determine release name
+        run: |
+          tag=$(date -u +'%y-%m-%d')
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "RELEASE_NAME=iidxfreq-$tag" >> "$GITHUB_ENV"
+
+      - name: Build toolchain image
+        run: docker build --pull --tag iidxfreq-build docker
+
+      - name: Build DLL
+        env:
+          BUILD_TYPE: Release
+        run: |
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src" \
+            --workdir /src \
+            --env BUILD_TYPE \
+            --env BUILD_ROOT=/tmp/iidxfreq-build \
+            iidxfreq-build bash /src/build_all.sh
+          test -s bin/iidxfreq/iidxfreq.dll
+          test -s bin/iidxfreq/iidxfreq.ini
+
+      - name: Package
+        run: |
+          mkdir -p dist/iidxfreq
+          cp bin/iidxfreq/iidxfreq.dll bin/iidxfreq/iidxfreq.ini dist/iidxfreq/
+          cp README.md LICENSE THIRD_PARTY.md dist/iidxfreq/
+          cd dist
+          zip -r "$RELEASE_NAME.zip" iidxfreq
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          prerelease: true
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_NAME }}
+          target_commitish: main
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: dist/iidxfreq-*.zip
